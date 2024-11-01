@@ -1,18 +1,7 @@
-# minecraft-java-core
-NodeJS Module for Minecraft launcher
+# mcjava-core-xllifi
+NodeJS Module for Minecraft launcher. Split from original module so I can add my things and not be bound to any other maintainers.
 <br>
-[![Number](https://img.shields.io/npm/v/minecraft-java-core?style=social&logo=appveyor)](https://npmjs.com/minecraft-java-core)
-[![Install](https://img.shields.io/npm/dm/minecraft-java-core.svg?style=social&logo=appveyor)](https://npmjs.com/minecraft-java-core)
-[![size](https://img.shields.io/github/languages/code-size/luuxis/minecraft-java-core?style=social&logo=appveyor)](https://npmjs.com/minecraft-java-core)
-[![sizeinstall](https://badgen.net/packagephobia/install/minecraft-java-core)](https://npmjs.com/minecraft-java-core)
 
-<p align="center">
-    <a href="http://discord.luuxis.fr">
-        <img src="https://invidget.switchblade.xyz/e9q7Yr2cuQ">
-    </a>
-</p>
-
----
 ## Avantages :dizzy:
 - Auto check & downloading compatible java version
 - Support 100% custom minecraft version
