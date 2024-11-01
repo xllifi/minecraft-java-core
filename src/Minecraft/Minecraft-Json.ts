@@ -17,8 +17,15 @@ export default class Json {
 
     async GetInfoVersion() {
         let version: string = this.options.version;
-        let data: any = await nodeFetch(`https://launchermeta.mojang.com/mc/game/version_manifest_v2.json?_t=${new Date().toISOString()}`);
-        data = await data.json();
+        let data: any
+        try {
+            data = await nodeFetch(`https://launchermeta.mojang.com/mc/game/version_manifest_v2.json?_t=${new Date().toISOString()}`).then(res => res.json());
+        } catch (err) {
+            return {
+                error: true,
+                message: err
+            };
+        }
 
         if (version == 'latest_release' || version == 'r' || version == 'lr') {
             version = data.latest.release;
@@ -34,7 +41,15 @@ export default class Json {
             message: `Minecraft ${version} is not found.`
         };
 
-        let json: any = await nodeFetch(data.url).then(res => res.json());
+        let json: any 
+        try {
+            json = await nodeFetch(data.url).then(res => res.json());
+        } catch (err) {
+            return {
+                error: true,
+                message: err
+            };
+        }
         if (os.platform() == 'linux' && os.arch().startsWith('arm')) json = await new MinecraftNativeLinuxARM(this.options).ProcessJson(json);
 
         return {
