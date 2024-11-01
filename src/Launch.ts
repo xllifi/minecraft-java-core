@@ -108,7 +108,7 @@ type javaOPTS = {
  */
 export type LaunchOPTS = {
     /**
-     * URL to the launcher backend. Refer to [Selvania Launcher Wiki](https://github.com/luuxis/Selvania-Launcher/blob/master/docs/wiki_EN-US.md) for setup instructions.
+     * URL of the launcher backend. Refer to [Selvania Launcher Wiki](https://github.com/luuxis/Selvania-Launcher/blob/master/docs/wiki_EN-US.md) for setup instructions.
      */
     url: string | null,
     /**
