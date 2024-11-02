@@ -6,12 +6,19 @@
 import fs from 'fs';
 import nodeFetch from 'node-fetch';
 import { EventEmitter } from 'events';
+import os from 'os';
+import SevenZip from 'node-7z';
+import SevenZipBin from '7zip-bin'
 
-interface downloadOptions {
+import { getFileHash } from '../utils/Index.js';
+
+export type downloadOptions = {
     url: string,
     path: string,
     length: number,
-    folder: string
+    folder: string,
+    type?: string,
+    checksum?: string,
 }
 
 export default class download extends EventEmitter {
@@ -41,7 +48,35 @@ export default class download extends EventEmitter {
         })
     }
 
-    async downloadFileMultiple(files: downloadOptions, size: number, limit: number = 1, timeout: number = 10000) {
+    async verifyAndDownloadFile(pathFolder: string, fileName: string, url: string, correctChecksum: string): Promise<void> {
+        const filePath = `${pathFolder.replace(/\/$/m, '')}/${fileName}`;
+
+        if (fs.existsSync(filePath)) {
+            const existingChecksum = await getFileHash(filePath, 'sha256');
+            if (existingChecksum !== correctChecksum) {
+                fs.unlinkSync(filePath);
+                fs.rmSync(pathFolder, { recursive: true, force: true });
+            }
+        }
+
+        if (!fs.existsSync(filePath)) {
+            fs.mkdirSync(pathFolder, { recursive: true });
+            const downloader = new download();
+
+            downloader.on('progress', (downloaded, size) => {
+                this.emit('progress', downloaded, size, fileName);
+            });
+
+            await downloader.downloadFile(url, pathFolder, fileName);
+        }
+
+        const downloadedChecksum = await getFileHash(filePath, 'sha256');
+        if (downloadedChecksum !== correctChecksum) {
+            throw new Error("Checksum failed");
+        }
+    }
+
+    async downloadFileMultiple(files: downloadOptions[], size: number, limit: number = 1, timeout: number = 10000) {
         if (limit > files.length) limit = files.length;
         let completed = 0;
         let downloaded = 0;
@@ -71,7 +106,7 @@ export default class download extends EventEmitter {
                 let file = files[queued];
                 queued++;
 
-                if (!fs.existsSync(file.foler)) fs.mkdirSync(file.folder, { recursive: true, mode: 0o777 });
+                if (!fs.existsSync(file.folder)) fs.mkdirSync(file.folder, { recursive: true, mode: 0o777 });
                 const writer: any = fs.createWriteStream(file.path, { flags: 'w', mode: 0o777 });
 
                 try {
@@ -79,7 +114,7 @@ export default class download extends EventEmitter {
 
                     response.body.on('data', (chunk: any) => {
                         downloaded += chunk.length;
-                        this.emit('progress', downloaded, size, file.type);
+                        this.emit('progress', downloaded, size, file.path);
                         writer.write(chunk);
                     });
 
@@ -140,5 +175,23 @@ export default class download extends EventEmitter {
             } continue;
         }
         return false;
+    }
+
+    async extract(filePath: string, destPath: string) {
+        if (os.platform() !== 'win32') fs.chmodSync(SevenZipBin.path7za, 0o755);
+
+        await new Promise<void>((resolve, reject) => {
+            const extract = SevenZip.extractFull(filePath, destPath, {
+                $bin: SevenZipBin.path7za,
+                recursive: true,
+                $progress: true,
+            });
+
+            extract.on('end', () => resolve());
+            extract.on('error', (err) => reject(err));
+            extract.on('progress', (progress) => {
+                if (progress.percent > 0) this.emit('extract', progress.percent);
+            });
+        });
     }
 }

@@ -8,11 +8,8 @@ import nodeFetch from 'node-fetch';
 import path from 'path';
 import fs from 'fs';
 import EventEmitter from 'events';
-import Seven from 'node-7z';
-import sevenBin from '7zip-bin'
 
-import { getFileHash } from '../utils/Index.js';
-import downloader from '../utils/Downloader.js';
+import download from '../utils/Downloader.js';
 
 export default class JavaDownloader extends EventEmitter {
     options: any;
@@ -72,6 +69,7 @@ export default class JavaDownloader extends EventEmitter {
 
 
     async getJavaOther(jsonversion: any, versionDownload?: any) {
+        const downloader = new download();
         const majorVersion = versionDownload || jsonversion.javaVersion?.majorVersion || 8;
         const { platform, arch } = this.getPlatformArch();
         const javaVersionURL = `https://api.adoptium.net/v3/assets/latest/${majorVersion}/hotspot?` + new URLSearchParams({
@@ -83,7 +81,7 @@ export default class JavaDownloader extends EventEmitter {
 
         const java = javaVersions[0];
 
-        if (!java) return { error: true, message: "No Java found" };
+        if (!java) return { error: true, message: "Requested Java not found" };
 
         const { checksum, link: url, name: fileName } = java.binary.package;
         const pathFolder = path.resolve(this.options.path, `runtime/jre-${majorVersion}`);
@@ -93,13 +91,13 @@ export default class JavaDownloader extends EventEmitter {
         if (platform === 'mac') javaPath = path.join(pathFolder, 'Contents', 'Home', 'bin', 'java');
 
         if (!fs.existsSync(javaPath)) {
-            await this.verifyAndDownloadFile({ filePath, pathFolder, fileName, url, checksum });
-            await this.extract(filePath, pathFolder);
+            await downloader.verifyAndDownloadFile(pathFolder, fileName, url, checksum);
+            await downloader.extract(filePath, pathFolder);
             fs.unlinkSync(filePath);
 
             if (filePath.endsWith('.tar.gz')) {
                 const tarFilePath = filePath.replace('.gz', '');
-                await this.extract(tarFilePath, pathFolder);
+                await downloader.extract(tarFilePath, pathFolder);
                 if (fs.existsSync(tarFilePath)) fs.unlinkSync(tarFilePath);
             }
 
@@ -135,49 +133,5 @@ export default class JavaDownloader extends EventEmitter {
         }
 
         return { platform, arch };
-    }
-
-    async verifyAndDownloadFile({ filePath, pathFolder, fileName, url, checksum }) {
-        if (fs.existsSync(filePath)) {
-            const existingChecksum = await getFileHash(filePath, 'sha256');
-            if (existingChecksum !== checksum) {
-                fs.unlinkSync(filePath);
-                fs.rmSync(pathFolder, { recursive: true, force: true });
-            }
-        }
-
-        if (!fs.existsSync(filePath)) {
-            fs.mkdirSync(pathFolder, { recursive: true });
-            const download = new downloader();
-
-            download.on('progress', (downloaded, size) => {
-                this.emit('progress', downloaded, size, fileName);
-            });
-
-            await download.downloadFile(url, pathFolder, fileName);
-        }
-
-        const downloadedChecksum = await getFileHash(filePath, 'sha256');
-        if (downloadedChecksum !== checksum) {
-            throw new Error("Java checksum failed");
-        }
-    }
-
-    async extract(filePath: string, destPath: string) {
-        if (os.platform() !== 'win32') fs.chmodSync(sevenBin.path7za, 0o755);
-
-        await new Promise<void>((resolve, reject) => {
-            const extract = Seven.extractFull(filePath, destPath, {
-                $bin: sevenBin.path7za,
-                recursive: true,
-                $progress: true,
-            });
-
-            extract.on('end', () => resolve());
-            extract.on('error', (err) => reject(err));
-            extract.on('progress', (progress) => {
-                if (progress.percent > 0) this.emit('extract', progress.percent);
-            });
-        });
     }
 }
