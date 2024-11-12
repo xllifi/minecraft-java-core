@@ -20,8 +20,15 @@ export default class FabricMC extends EventEmitter {
     }
 
     async downloadJson(Loader) {
-        let build
-        let metaData = await nodeFetch(Loader.metaData).then(res => res.json());
+        let build, metaData
+        try {
+            metaData = await nodeFetch(Loader.metaData).then(res => res.json());
+        } catch (err) {
+            return {
+                error: true,
+                message: err
+            };
+        }
 
         let version = metaData.game.find(version => version.version === this.options.loader.version);
         let AvailableBuilds = metaData.loader.map(build => build.version);
@@ -36,8 +43,14 @@ export default class FabricMC extends EventEmitter {
         if (!build) return { error: `Fabric Loader ${this.options.loader.build} not found, Available builds: ${AvailableBuilds.join(', ')}` };
 
         let url = Loader.json.replace('${build}', build.version).replace('${version}', this.options.loader.version);
-        let json = await nodeFetch(url).then(res => res.json()).catch(err => err);
-        return json
+        try {
+            return await nodeFetch(url).then(res => res.json()).catch(err => err);
+        } catch (err) {
+            return {
+                error: true,
+                message: err
+            };
+        }
     }
 
     async downloadLibraries(json) {
